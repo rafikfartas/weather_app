@@ -53,9 +53,9 @@ class Weather {
       cityName: map['name'],
       country: map['sys']['country'],
       description: map['weather'][0]['description'].toString().toTitleCase(),
-      temperature: map['main']['temp']?.roundToDouble().toInt(),
-      tempMin: map['main']['temp_min']?.roundToDouble().toInt(),
-      tempMax: map['main']['temp_max']?.roundToDouble().toInt(),
+      temperature: map['main']['temp']?.toInt(),
+      tempMin: map['main']['temp_min']?.toInt(),
+      tempMax: map['main']['temp_max']?.toInt(),
       pressure: map['main']['pressure']?.roundToDouble().toInt(),
       humidity: map['main']['humidity']?.roundToDouble().toInt(),
       visibility:

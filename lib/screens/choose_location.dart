@@ -1,137 +1,101 @@
+// ignore_for_file: prefer_const_constructors_in_immutables
+
 import 'package:flutter/material.dart';
+import 'package:google_maps_flutter/google_maps_flutter.dart';
+import 'package:provider/provider.dart';
+import 'package:weather_app/providers/location_provider.dart';
+import 'package:weather_app/providers/map_provider.dart';
 
-import 'package:weather_app/data/contstants.dart';
-import 'package:weather_app/screens/location_map.dart';
-import 'package:weather_app/screens/weather_page.dart';
-import 'package:weather_app/widgets/custom_card.dart';
+// ignore: must_be_immutable
+class ChooseLocation extends StatelessWidget {
+  ChooseLocation({
+    Key? key,
+  }) : super(key: key);
 
-class ChooseLocation extends StatefulWidget {
-  final String title;
-  const ChooseLocation({Key? key, required this.title}) : super(key: key);
-
-  @override
-  State<ChooseLocation> createState() => _ChooseLocationState();
-}
-
-class _ChooseLocationState extends State<ChooseLocation> {
-  late String asset = morningAsset;
-
-  @override
-  void initState() {
-    _getTime();
-    super.initState();
-  }
+  late final GoogleMapController _googleMapController;
+  CameraPosition? _initialCameraPosition;
 
   @override
   Widget build(BuildContext context) {
-    Size size = MediaQuery.of(context).size;
-    return Stack(
-      children: [
-        _backgroundAsset(size),
-        Scaffold(
-          backgroundColor: Colors.transparent,
-          body: SafeArea(
-            child: Center(
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.end,
-                crossAxisAlignment: CrossAxisAlignment.center,
-                children: [
-                  Image.asset(
-                    cloudSunAsset,
-                    width: size.width - 100,
-                  ),
-                  const SizedBox(height: 20),
-                  Column(
-                    children: [
-                      Text(
-                        widget.title,
-                        style: Theme.of(context)
-                            .textTheme
-                            .headline5!
-                            .copyWith(color: Colors.white),
+    return MultiProvider(
+      providers: [
+        ChangeNotifierProvider(create: (_) => MapProvider()),
+      ],
+      child: Consumer2<MapProvider, LocationProvider>(
+        builder: (ctx, MapProvider coMap, LocationProvider coLocation, child) {
+          if (_initialCameraPosition == null) {
+            if (coLocation.location != null) {
+              _initialCameraPosition =
+                  CameraPosition(target: coLocation.location!, zoom: 5);
+              coMap.initializeMarker(coLocation.location!);
+            } else {
+              _initialCameraPosition =
+                  const CameraPosition(target: LatLng(0, 0));
+            }
+          }
+          return Scaffold(
+            extendBodyBehindAppBar: true,
+            appBar: AppBar(
+              centerTitle: false,
+              title: Text(
+                "Change location",
+                style: TextStyle(color: Colors.blueGrey.shade800),
+              ),
+              iconTheme: IconThemeData(color: Colors.blueGrey.shade800),
+              leading: coMap.isMarked
+                  ? SafeArea(
+                      child: IconButton(
+                        onPressed: () => coMap.deleteMarker(),
+                        icon: const Icon(Icons.close),
                       ),
-                      const SizedBox(height: 10),
-                      Text(
-                        "Showing weather anywhere, \nmore than basic info",
-                        style: Theme.of(context)
-                            .textTheme
-                            .bodyText2!
-                            .copyWith(color: Colors.white),
-                        textAlign: TextAlign.center,
+                    )
+                  : null,
+              actions: [
+                if (coMap.isMarked)
+                  Padding(
+                    padding: const EdgeInsets.only(right: 8.0),
+                    child: TextButton(
+                      onPressed: () {
+                        coLocation.setLocation(coMap.choosedPosition);
+                        Navigator.of(context).pop();
+                      },
+                      child: Text(
+                        "Choose",
+                        style: TextStyle(
+                          color: Colors.blueGrey.shade800,
+                        ),
                       ),
-                    ],
-                  ),
-                  const SizedBox(height: 20),
-                  Image.asset(
-                    cloudsAsset,
-                    width: size.width - 60,
-                  ),
-                  const SizedBox(height: 50),
-                  CustomContainer(
-                    child: Column(
-                      children: [
-                        InkWell(
-                          onTap: () => Navigator.of(context).push(
-                            MaterialPageRoute(
-                              builder: (ctx) =>
-                                  const LocationMap(title: "Weather App"),
-                            ),
-                          ),
-                          child: Text(
-                            "Choose location",
-                            style:
-                                Theme.of(context).textTheme.subtitle1!.copyWith(
-                                      color: Colors.grey.shade900,
-                                    ),
-                          ),
-                        ),
-                        Divider(
-                          color: Colors.grey.shade900.withOpacity(0.1),
-                          thickness: 1,
-                          indent: 10,
-                          endIndent: 10,
-                          height: 25,
-                        ),
-                        InkWell(
-                          onTap: () => Navigator.of(context).push(
-                            MaterialPageRoute(
-                              builder: (ctx) =>
-                                  const WeatherPage(title: "Weather App"),
-                            ),
-                          ),
-                          child: Text(
-                            "Current location",
-                            style:
-                                Theme.of(context).textTheme.subtitle1!.copyWith(
-                                      color: Colors.grey.shade900,
-                                    ),
-                          ),
-                        ),
-                      ],
                     ),
                   ),
-                ],
-              ),
+              ],
             ),
-          ),
-        ),
-      ],
+            body: GoogleMap(
+              zoomControlsEnabled: false,
+              myLocationButtonEnabled: false,
+              myLocationEnabled: true,
+              initialCameraPosition: _initialCameraPosition!,
+              onMapCreated: (controller) => _googleMapController = controller,
+              markers: {if (coMap.isMarked) coMap.marker!},
+              onLongPress: (position) => coMap.addMarker(position),
+              mapToolbarEnabled: true,
+            ),
+            floatingActionButton: FloatingActionButton(
+              child: const Icon(Icons.my_location),
+              onPressed: () async {
+                if (coLocation.currentLocation != null) {
+                  await _googleMapController.animateCamera(
+                    CameraUpdate.newCameraPosition(
+                      CameraPosition(
+                          zoom: 5, target: coLocation.currentLocation!),
+                    ),
+                  );
+                  coMap.addMarker(coLocation.currentLocation!);
+                }
+              },
+            ),
+          );
+        },
+      ),
     );
   }
-
-  void _getTime() {
-    int nowHour = DateTime.now().hour;
-    if (nowHour >= 7 && nowHour <= 19) {
-      asset = morningAsset;
-    } else {
-      asset = nightAsset;
-    }
-  }
-
-  Image _backgroundAsset(Size size) => Image.asset(
-        morningAsset,
-        fit: BoxFit.cover,
-        height: size.height,
-        width: size.width,
-      );
 }
